@@ -268,6 +268,57 @@ def MC_step(arr,Ts,nmax):
                     arr[ix,iy] -= ang
     return accept/(nmax*nmax)
 #=======================================================================
+
+# added vectorized code
+
+#=======================================================================
+def vectorized_MC_step(arr, Ts, nmax):
+    """
+    Perform one vectorized Monte Carlo step on a 2D lattice.
+
+    Parameters:
+    arr (numpy.ndarray): Array containing lattice data.
+    Ts (float): Reduced temperature (range 0 to 2).
+    nmax (int): Side length of the square lattice.
+
+    Returns:
+    float: Acceptance ratio for the current Monte Carlo step.
+    """
+    # Pre-compute some random numbers. This is faster than
+    # using lots of individual calls. "scale" sets the width
+    # of the distribution for the angle changes - increases
+    # with temperature.
+    scale = 0.1 + Ts
+
+    # Generate random indices and angles
+    xran = np.random.randint(0, high=nmax, size=(nmax, nmax))
+    yran = np.random.randint(0, high=nmax, size=(nmax, nmax))
+    aran = np.random.normal(scale=scale, size=(nmax, nmax))
+
+    # Calculate initial energies
+    en0 = one_energy(arr, xran, yran, nmax)
+
+    # Perturb array and calculate new energies
+    arr_perturbed = arr.copy()
+    arr_perturbed[xran, yran] += aran
+    en1 = one_energy(arr_perturbed, xran, yran, nmax)
+
+    # Acceptance condition
+    mask = en1 <= en0
+
+    # Apply Monte Carlo test
+    boltz = np.exp(-(en1 - en0) / Ts)
+    mask &= boltz >= np.random.uniform(0.0, 1.0, size=(nmax, nmax))
+
+    # Update array for accepted configurations
+    arr[mask] = arr_perturbed[mask]
+
+    # Calculate acceptance ratio
+    accept = np.sum(mask)
+    acceptance_ratio = accept / (nmax * nmax)
+
+    return acceptance_ratio
+#=======================================================================
 def main(program, nsteps, nmax, temp, pflag):
     """
     Arguments:
@@ -297,7 +348,7 @@ def main(program, nsteps, nmax, temp, pflag):
     # Begin doing and timing some MC steps.
     initial = time.time()
     for it in range(1,nsteps+1):
-        ratio[it] = MC_step(lattice,temp,nmax)
+        ratio[it] = vectorized_MC_step(lattice,temp,nmax)
         energy[it] = all_energy(lattice,nmax)
         order[it] = get_order(lattice,nmax)
     final = time.time()
