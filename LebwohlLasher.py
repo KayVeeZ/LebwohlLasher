@@ -196,31 +196,6 @@ def all_energy(arr,nmax):
     return enall
 #=======================================================================
 
-# vectorize all_energy
-
-# doesn't work, will remove
-
-#=======================================================================
-def vectorized_all_energy(arr, nmax):
-    """
-    Compute the energy of the entire lattice.
-
-    Parameters:
-    arr (numpy.ndarray): Array containing lattice data.
-    nmax (int): Side length of the square lattice.
-
-    Returns:
-    float: Reduced energy of the lattice.
-    """
-    # Calculate the energy of each lattice site using one_energy function
-    energies = np.fromfunction(lambda i, j: one_energy(arr, i, j, nmax), shape=(nmax, nmax))
-
-    # Sum up all the energies to get the total energy of the lattice
-    enall = np.sum(energies)
-
-    return enall
-#=======================================================================
-
 def get_order(arr,nmax):
     """
     Arguments:
@@ -248,48 +223,6 @@ def get_order(arr,nmax):
     Qab = Qab/(2*nmax*nmax)
     eigenvalues,eigenvectors = np.linalg.eig(Qab)
     return eigenvalues.max()
-#=======================================================================
-
-# vecotrized get_order
-
-# increases time, will not use
-
-#=======================================================================
-
-def vectorized_get_order(arr, nmax):
-    """
-    Calculate the order parameter of a lattice using the Q tensor approach.
-
-    Parameters:
-    arr (numpy.ndarray): Array containing lattice data.
-    nmax (int): Side length of the square lattice.
-
-    Returns:
-    float: Order parameter for the lattice.
-    """
-    # Initialize Q tensor and Kronecker delta
-    Qab = np.zeros((3, 3))
-    delta = np.eye(3)
-
-    # Generate a 3D unit vector for each cell (i, j) and
-    # put it in a (3, nmax, nmax) array.
-    lab = np.vstack((np.cos(arr), np.sin(arr), np.zeros_like(arr))).reshape(3, nmax, nmax)
-
-    # Compute elements of the Q tensor
-    for a in range(3):
-        for b in range(3):
-            Qab[a, b] = np.sum(3 * lab[a] * lab[b] - delta[a, b])
-
-    # Normalize Q tensor
-    Qab /= 2 * nmax * nmax
-
-    # Calculate eigenvalues of Q tensor
-    eigenvalues, _ = np.linalg.eig(Qab)
-
-    # Return the maximum eigenvalue as the order parameter
-    order_parameter = eigenvalues.max()
-
-    return order_parameter
 #=======================================================================
 
 def MC_step(arr,Ts,nmax):
