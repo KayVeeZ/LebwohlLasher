@@ -21,7 +21,11 @@ domains alternate between old data and new data.
 
 SH 16-Oct-23
 """
-
+#=======================================================================
+# added by me, Kshitij Vashisth
+import os
+import shutil
+#=======================================================================
 import sys
 import time
 import datetime
@@ -109,9 +113,19 @@ def savedat(arr,nsteps,Ts,runtime,ratio,energy,order,nmax):
 	Returns:
 	  NULL
     """
+#=======================================================================
+    # code to create subdirectories
+    # iterations= nsteps(monte carlo steps), temperature= Ts, lattice size=nmax
+    path1 = f"iter_{nsteps}_temp_{Ts}_side_{nmax}"
+    if not os.path.exists(path1):
+        os.makedirs(path1)
+    # else:
+    #     shutil.rmtree(path1)  # Removes all the subdirectories!
+    #     os.makedirs(path1)
+#=======================================================================
     # Create filename based on current date and time.
     current_datetime = datetime.datetime.now().strftime("%a-%d-%b-%Y-at-%I-%M-%S%p")
-    filename = "LL-Output-{:s}.txt".format(current_datetime)
+    filename = "{}/LL-Output-{:s}.txt".format(path1,current_datetime)
     FileOut = open(filename,"w")
     # Write a header with run parameters
     print("#=====================================================",file=FileOut)
@@ -290,10 +304,12 @@ def main(program, nsteps, nmax, temp, pflag):
     runtime = final-initial
     
     # Final outputs
-    print("{}: Size: {:d}, Steps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Time: {:8.6f} s".format(program, nmax,nsteps,temp,order[nsteps-1],runtime))
+    fin1 = "{}: Size: {:d}, Steps: {:d}, T*: {:5.3f}: Order: {:5.3f}, Time: {:8.6f} s".format(program, nmax,nsteps,temp,order[nsteps-1],runtime)
     # Plot final frame of lattice and generate output file
     savedat(lattice,nsteps,temp,runtime,ratio,energy,order,nmax)
     plotdat(lattice,pflag,nmax)
+    print(fin1)
+    return fin1
 #=======================================================================
 # Main part of program, getting command line arguments and calling
 # main simulation function.
