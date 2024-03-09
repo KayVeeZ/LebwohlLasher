@@ -1,0 +1,5 @@
+Non-accelerated
+----------------
+# at temp 1.5 orientational order seems lesser in images than 1 and somehow takes more time than 1.
+# 1.2 takes similar time as 1 on an average, sometimes more sometimes less
+# 0.8 takes more time and less oriented than 1

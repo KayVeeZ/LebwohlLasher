@@ -1,0 +1,1 @@
+LebwohlLasher.py: Size: 10, Steps: 100, T*: 1.000: Order: 0.534, Time: 0.386137 s
