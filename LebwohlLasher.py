@@ -142,6 +142,7 @@ def savedat(arr,nsteps,Ts,runtime,ratio,energy,order,nmax):
         print("   {:05d}    {:6.4f} {:12.4f}  {:6.4f} ".format(i,ratio[i],energy[i],order[i]),file=FileOut)
     FileOut.close()
 #=======================================================================
+
 def one_energy(arr,ix,iy,nmax):
     """
     Arguments:
@@ -176,6 +177,7 @@ def one_energy(arr,ix,iy,nmax):
     en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
     return en
 #=======================================================================
+
 def all_energy(arr,nmax):
     """
     Arguments:
@@ -218,6 +220,7 @@ def vectorized_all_energy(arr, nmax):
 
     return enall
 #=======================================================================
+
 def get_order(arr,nmax):
     """
     Arguments:
@@ -409,9 +412,9 @@ def main(program, nsteps, nmax, temp, pflag):
     ratio = np.zeros(nsteps+1,dtype=np.dtype)
     order = np.zeros(nsteps+1,dtype=np.dtype)
     # Set initial values in arrays
-    energy[0] = vectorized_all_energy(lattice,nmax)
+    energy[0] = all_energy(lattice,nmax)
     ratio[0] = 0.5 # ideal value
-    order[0] = vectorized_get_order(lattice,nmax)
+    order[0] = get_order(lattice,nmax)
 
     # Begin doing and timing some MC steps.
     initial = time.time()
