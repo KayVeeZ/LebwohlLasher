@@ -1,5 +1,29 @@
-import LebwohlLasher_cython as llc
+import LebwohlLasher_cy1 as llc
 # print(dir(llc))
+
+"""
+Basic Python Lebwohl-Lasher code.  Based on the paper 
+P.A. Lebwohl and G. Lasher, Phys. Rev. A, 6, 426-429 (1972).
+This version in 2D.
+
+Run at the command line by typing:
+
+python LebwohlLasher.py <ITERATIONS> <SIZE> <TEMPERATURE> <PLOTFLAG>
+
+where:
+  ITERATIONS = number of Monte Carlo steps, where 1MCS is when each cell
+      has attempted a change once on average (i.e. SIZE*SIZE attempts)
+  SIZE = side length of square lattice
+  TEMPERATURE = reduced temperature in range 0.0 - 2.0.
+  PLOTFLAG = 0 for no plot, 1 for energy plot and 2 for angle plot.
+  
+The initial configuration is set at random. The boundaries
+are periodic throughout the simulation.  During the
+time-stepping, an array containing two domains is used; these
+domains alternate between old data and new data.
+
+SH 16-Oct-23
+"""
 #=======================================================================
 # added by me, Kshitij Vashisth
 import os
@@ -57,7 +81,7 @@ def plotdat(arr,pflag,nmax):
         mpl.rc('image', cmap='rainbow')
         for i in range(nmax):
             for j in range(nmax):
-                cols[i,j] = one_energy(arr,i,j,nmax)
+                cols[i,j] = llc.one_energy(arr,i,j,nmax)
         norm = plt.Normalize(cols.min(), cols.max())
     elif pflag==2: # colour the arrows according to angle
         mpl.rc('image', cmap='hsv')
@@ -121,96 +145,6 @@ def savedat(arr,nsteps,Ts,runtime,ratio,energy,order,nmax):
         print("   {:05d}    {:6.4f} {:12.4f}  {:6.4f} ".format(i,ratio[i],energy[i],order[i]),file=FileOut)
     FileOut.close()
 #=======================================================================
-
-def one_energy(arr,ix,iy,nmax):
-    """
-    Arguments:
-	  arr (float(nmax,nmax)) = array that contains lattice data;
-	  ix (int) = x lattice coordinate of cell;
-	  iy (int) = y lattice coordinate of cell;
-      nmax (int) = side length of square lattice.
-    Description:
-      Function that computes the energy of a single cell of the
-      lattice taking into account periodic boundaries.  Working with
-      reduced energy (U/epsilon), equivalent to setting epsilon=1 in
-      equation (1) in the project notes.
-	Returns:
-	  en (float) = reduced energy of cell.
-    """
-    en = 0.0
-    ixp = (ix+1)%nmax # These are the coordinates
-    ixm = (ix-1)%nmax # of the neighbours
-    iyp = (iy+1)%nmax # with wraparound
-    iym = (iy-1)%nmax #
-#
-# Add together the 4 neighbour contributions
-# to the energy
-#
-    ang = arr[ix,iy]-arr[ixp,iy]
-    en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
-    ang = arr[ix,iy]-arr[ixm,iy]
-    en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
-    ang = arr[ix,iy]-arr[ix,iyp]
-    en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
-    ang = arr[ix,iy]-arr[ix,iym]
-    en += 0.5*(1.0 - 3.0*np.cos(ang)**2)
-    return en
-#=======================================================================
-def all_energy(arr,nmax):
-    """
-    Arguments:
-	  arr (float(nmax,nmax)) = array that contains lattice data;
-      nmax (int) = side length of square lattice.
-    Description:
-      Function to compute the energy of the entire lattice. Output
-      is in reduced units (U/epsilon).
-	Returns:
-	  enall (float) = reduced energy of lattice.
-    """
-    enall = 0.0
-    for i in range(nmax):
-        for j in range(nmax):
-            enall += one_energy(arr,i,j,nmax)
-    return enall
-
-#=======================================================================
-
-def vectorized_get_order(arr, nmax):
-    """
-    Calculate the order parameter of a lattice using the Q tensor approach.
-
-    Parameters:
-    arr (numpy.ndarray): Array containing lattice data.
-    nmax (int): Side length of the square lattice.
-
-    Returns:
-    float: Order parameter for the lattice.
-    """
-    # Initialize Q tensor and Kronecker delta
-    Qab = np.zeros((3, 3))
-    delta = np.eye(3)
-
-    # Generate a 3D unit vector for each cell (i, j) and
-    # put it in a (3, nmax, nmax) array.
-    lab = np.vstack((np.cos(arr), np.sin(arr), np.zeros_like(arr))).reshape(3, nmax, nmax)
-
-    # Compute elements of the Q tensor
-    for a in range(3):
-        for b in range(3):
-            Qab[a, b] = np.sum(3 * lab[a] * lab[b] - delta[a, b])
-
-    # Normalize Q tensor
-    Qab /= 2 * nmax * nmax
-
-    # Calculate eigenvalues of Q tensor
-    eigenvalues, _ = np.linalg.eig(Qab)
-
-    # Return the maximum eigenvalue as the order parameter
-    order_parameter = eigenvalues.max()
-
-    return order_parameter
-#=======================================================================
-#=======================================================================
 def main(program, nsteps, nmax, temp, pflag):
     """
     Arguments:
@@ -233,16 +167,16 @@ def main(program, nsteps, nmax, temp, pflag):
     ratio = np.zeros(nsteps+1,dtype=np.dtype)
     order = np.zeros(nsteps+1,dtype=np.dtype)
     # Set initial values in arrays
-    energy[0] = all_energy(lattice,nmax)
+    energy[0] = llc.all_energy(lattice,nmax)
     ratio[0] = 0.5 # ideal value
-    order[0] = vectorized_get_order(lattice,nmax)
+    order[0] = llc.get_order(lattice,nmax)
 
     # Begin doing and timing some MC steps.
     initial = time.time()
     for it in range(1,nsteps+1):
-        ratio[it] = llc.cy_MC_step(lattice,temp,nmax)
-        energy[it] = all_energy(lattice,nmax)
-        order[it] = vectorized_get_order(lattice,nmax)
+        ratio[it] = llc.MC_step(lattice,temp,nmax)
+        energy[it] = llc.all_energy(lattice,nmax)
+        order[it] = llc.get_order(lattice,nmax)
     final = time.time()
     runtime = final-initial
     

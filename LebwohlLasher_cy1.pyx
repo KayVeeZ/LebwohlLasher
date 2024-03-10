@@ -1,91 +1,83 @@
+
 import numpy as np
-import time
-import sys
-from cython.parallel import prange
 
-cdef double[:, ::1] energy_cy(double[:, ::1] spins, int nmax):
+cimport numpy as np
+
+
+
+def one_energy(np.ndarray[np.float64_t, ndim=2] arr, int ix, int iy, int nmax):
+    cdef double en = 0.0
+    cdef int ixp = (ix + 1) % nmax
+    cdef int ixm = (ix - 1) % nmax
+    cdef int iyp = (iy + 1) % nmax
+    cdef int iym = (iy - 1) % nmax
+    cdef double ang
+
+    ang = arr[ix, iy] - arr[ixp, iy]
+    en += 0.5 * (1.0 - 3.0 * np.cos(ang)**2)
+    ang = arr[ix, iy] - arr[ixm, iy]
+    en += 0.5 * (1.0 - 3.0 * np.cos(ang)**2)
+    ang = arr[ix, iy] - arr[ix, iyp]
+    en += 0.5 * (1.0 - 3.0 * np.cos(ang)**2)
+    ang = arr[ix, iy] - arr[ix, iym]
+    en += 0.5 * (1.0 - 3.0 * np.cos(ang)**2)
+    return en
+
+cpdef double all_energy(np.ndarray[np.float64_t, ndim=2] arr, int nmax):
+    cdef double enall = 0.0
     cdef int i, j
-    cdef double[:, ::1] energy = np.zeros((nmax, nmax), dtype=np.float64)
 
-    for i in prange(nmax, nogil=True):
+    for i in range(nmax):
         for j in range(nmax):
-            energy[i, j] = -1.0 * (spins[i, j] * (spins[(i + 1) % nmax, j] + spins[i, (j + 1) % nmax] + spins[(i - 1) % nmax, j] + spins[i, (j - 1) % nmax]))
+            enall += one_energy(arr, i, j, nmax)
+    return enall
 
-    return energy
 
-cdef double[:, ::1] mc_step(double[:, ::1] spins, double Ts, int nmax):
-    cdef int i, j
-    cdef double[:, ::1] energy = energy_cy(spins, nmax)
-    cdef double[:, ::1] new_spins = np.copy(spins)
-    cdef double[:, ::1] order = np.zeros((nmax, nmax), dtype=np.float64)
-    cdef double[:, ::1] ran = np.random.rand(nmax, nmax)
+cpdef double get_order(np.ndarray[np.float64_t, ndim=2] arr, int nmax):
+    cdef double[:, :] Qab = np.zeros((3, 3), dtype=np.float64)
+    cdef double[:, :] delta = np.eye(3, dtype=np.float64)
+    cdef double[:, :, :] lab = np.vstack((np.cos(arr), np.sin(arr), np.zeros_like(arr))).reshape(3, nmax, nmax)
+    cdef int a, b, i, j
 
-    for i in prange(nmax, nogil=True):
+    for a in range(3):
+        for b in range(3):
+            for i in range(nmax):
+                for j in range(nmax):
+                    Qab[a, b] += 3 * lab[a, i, j] * lab[b, i, j] - delta[a, b]
+
+    # Convert Qab to a NumPy array before performing the division
+    cdef np.ndarray[np.float64_t, ndim=2] Qab_np = np.asarray(Qab)
+    Qab_np /= (2 * nmax * nmax)
+
+    # Return the maximum eigenvalue of Qab
+    return np.linalg.eigvals(Qab_np).max()
+
+
+cpdef MC_step(np.ndarray[np.float64_t, ndim=2] arr, double Ts, int nmax):
+    cdef double scale = 0.1 + Ts
+    cdef int accept = 0
+    cdef np.ndarray[int, ndim=2] xran = np.random.randint(0, high=nmax, size=(nmax, nmax), dtype=np.int32)
+    cdef np.ndarray[int, ndim=2] yran = np.random.randint(0, high=nmax, size=(nmax, nmax), dtype=np.int32)
+    cdef np.ndarray[np.float64_t, ndim=2] aran = np.random.normal(scale=scale, size=(nmax, nmax))
+    cdef int i, j, ix, iy
+    cdef double ang, en0, en1, boltz
+
+    for i in range(nmax):
         for j in range(nmax):
-            if ran[i, j] < np.exp(-2.0 * Ts * energy[i, j]):
-                new_spins[i, j] *= -1.0
-                order[i, j] = 1.0
+            ix = xran[i, j]
+            iy = yran[i, j]
+            ang = aran[i, j]
+            en0 = one_energy(arr, ix, iy, nmax)
+            arr[ix, iy] += ang
+            en1 = one_energy(arr, ix, iy, nmax)
+            if en1 <= en0:
+                accept += 1
             else:
-                order[i, j] = 0.0
+                boltz = np.exp(-(en1 - en0) / Ts)
+                if boltz >= np.random.uniform(0.0, 1.0):
+                    accept += 1
+                else:
+                    arr[ix, iy] -= ang
+    return accept / (nmax * nmax)
 
-    return new_spins, order
 
-def run_simulation(int nmax, int nsteps, double Ts):
-    cdef int i, j, step
-    cdef double[:, ::1] spins = np.random.choice([-1.0, 1.0], size=(nmax, nmax))
-    cdef double[:, ::1] order
-    cdef double[:, ::1] new_spins
-    cdef double[:, ::1] energy
-    cdef double[:, ::1] order_sum = np.zeros((nmax, nmax), dtype=np.float64)
-    cdef double[:, ::1] energy_sum = np.zeros((nmax, nmax), dtype=np.float64)
-    cdef double[:, ::1] order_ratio = np.zeros((nmax, nmax), dtype=np.float64)
-    cdef double[:, ::1] energy_ratio = np.zeros((nmax, nmax), dtype=np.float64)
-    cdef double[:, ::1] order_avg = np.zeros((nmax, nmax), dtype=np.float64)
-    cdef double[:, ::1] energy_avg = np.zeros((nmax, nmax), dtype=np.float64)
-    cdef double[:, ::1] order_avg_sum = np.zeros((nmax, nmax), dtype=np.float64)
-    cdef double[:, ::1] energy_avg_sum = np.zeros((nmax, nmax), dtype=np.float64)
-    cdef double[:, ::1] order_avg_ratio = np.zeros((nmax, nmax), dtype=np.float64)
-    cdef double[:, ::1] energy_avg_ratio = np.zeros((nmax, nmax), dtype=np.float64)
-
-    for step in range(nsteps):
-        new_spins, order = mc_step(spins, Ts, nmax)
-        energy = energy_cy(new_spins, nmax)
-        order_sum += order
-        energy_sum += energy
-
-        order_ratio = order_sum / (step + 1)
-        energy_ratio = energy_sum / (step + 1)
-
-        order_avg = (order_sum / (step + 1))[::2, ::2]
-        energy_avg = (energy_sum / (step + 1))[::2, ::2]
-
-        order_avg_sum += order_avg
-        energy_avg_sum += energy_avg
-
-        order_avg_ratio = order_avg_sum / (step + 1)
-        energy_avg_ratio = energy_avg_sum / (step + 1)
-
-    return spins, order_avg_ratio, energy_avg_ratio
-
-def main(int nmax, int nsteps, double Ts):
-    cdef double[:, ::1] spins
-    cdef double[:, ::1] order_avg_ratio
-    cdef double[:, ::1] energy_avg_ratio
-
-    spins, order_avg_ratio, energy_avg_ratio = run_simulation(nmax, nsteps, Ts)
-
-    print("Spins:")
-    print(spins)
-
-    print("Order Ratio:")
-    print(order_avg_ratio)
-
-    print("Energy Ratio:")
-    print(energy_avg_ratio)
-
-if __name__ == '__main__':
-    nmax = int(sys.argv[1])
-    nsteps = int(sys.argv[2])
-    Ts = float(sys.argv[3])
-
-    main(nmax, nsteps, Ts)
