@@ -1,6 +1,6 @@
-,Approach,Time_s
-0,General,9.019004
-1,Vectorized,2.286078
-2,MPI4py,0.803999
-3,Cython,
-4,Numba,
+,Unnamed: 0,Approach,Time_s
+0,0,General,9.019004
+1,1,Vectorized,2.286078
+2,2,MPI4py,0.803999
+3,3,Cython,
+4,4,Numba,0.665886
