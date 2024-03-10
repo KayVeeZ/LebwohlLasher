@@ -417,14 +417,14 @@ def main(program, nsteps, nmax, temp, pflag):
     # Set initial values in arrays
     energy[0] = all_energy(lattice,nmax)
     ratio[0] = 0.5 # ideal value
-    order[0] = get_order(lattice,nmax)
+    order[0] = vectorized_get_order(lattice,nmax)
 
     # Begin doing and timing some MC steps.
     initial = time.time()
     for it in range(1,nsteps+1):
-        ratio[it] = MC_step(lattice,temp,nmax)
+        ratio[it] = vectorized_MC_step(lattice,temp,nmax)
         energy[it] = all_energy(lattice,nmax)
-        order[it] = get_order(lattice,nmax)
+        order[it] = vectorized_get_order(lattice,nmax)
     final = time.time()
     runtime = final-initial
     
