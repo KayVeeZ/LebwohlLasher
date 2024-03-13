@@ -6,3 +6,6 @@ This repo covers acceleration of this titled model using various approaches and 
 
 ## I used this command to run the mpi4py code:
 #### mpiexec -n 4 python LebwohlLasher_MPI.py 1000 20 0.65 0
+
+## Please note: Most of the work was done in: testing_notebook.ipynb
+## Also vectorized script is in LebwohlLasher.py whereas vanilla is in LebwohlLasher_gen.py
